@@ -1,0 +1,18 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4f46e5;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#9333ea;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="60" fill="url(#grad)" stroke="#ffffff" stroke-width="2"/>
+  
+  <!-- Power symbol (circle with line) -->
+  <circle cx="64" cy="64" r="25" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round" stroke-dasharray="80 20" transform="rotate(-90 64 64)"/>
+  <line x1="64" y1="39" x2="64" y2="64" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>
+  
+  <!-- "K" letter integrated -->
+  <path d="M50 50 L50 78 M50 64 L70 50 M50 64 L70 78" stroke="#ffffff" stroke-width="4" stroke-linecap="round" fill="none"/>
+</svg>

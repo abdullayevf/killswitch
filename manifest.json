@@ -1,0 +1,61 @@
+{
+  "manifest_version": 3,
+  "name": "KillSwitch - Freelance Proposal Generator",
+  "version": "1.0.0",
+  "description": "AI-powered proposal generator for freelance job posts",
+  
+  "permissions": [
+    "contextMenus",
+    "storage",
+    "tabs",
+    "scripting"
+  ],
+  
+  "host_permissions": [
+    "https://www.upwork.com/*",
+    "https://www.fiverr.com/*",
+    "https://www.freelancer.com/*",
+    "https://api.openai.com/*",
+    "https://api.groq.com/*",
+    "https://generativelanguage.googleapis.com/*",
+    "https://api-inference.huggingface.co/*"
+  ],
+  
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png", 
+    "128": "icon128.png"
+  },
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "KillSwitch Proposal Generator",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  
+  "background": {
+    "service_worker": "background.js"
+  },
+  
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.upwork.com/*",
+        "https://www.fiverr.com/*",
+        "https://www.freelancer.com/*"
+      ],
+      "js": ["content.js"]
+    }
+  ],
+  
+  "web_accessible_resources": [
+    {
+      "resources": ["popup.html"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
