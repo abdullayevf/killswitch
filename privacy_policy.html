@@ -17,9 +17,11 @@
     h2 { font-size: 18px; font-weight: 600; margin-top: 36px; margin-bottom: 8px; color: #111827; }
     p, li { font-size: 15px; color: #374151; }
     ul { padding-left: 20px; }
+    li { margin-bottom: 8px; }
     .meta { color: #6b7280; font-size: 14px; margin-bottom: 40px; }
     hr { border: none; border-top: 1px solid #e5e7eb; margin: 40px 0; }
     a { color: #4f46e5; }
+    code { font-size: 13px; background: #f3f4f6; padding: 1px 5px; border-radius: 4px; }
   </style>
 </head>
 <body>
@@ -34,7 +36,7 @@
 
   <h2>Data we do NOT collect</h2>
   <ul>
-    <li>We do not operate servers or backends.</li>
+    <li>We do not operate servers or backends of any kind.</li>
     <li>We do not collect, transmit, or store any data on our own infrastructure.</li>
     <li>We do not use analytics, crash reporting, or any third-party tracking SDKs.</li>
     <li>We do not track usage, clicks, or behavior of any kind.</li>
@@ -66,13 +68,42 @@
   </p>
 
   <h2>Permissions</h2>
-  <p>KillSwitch requests the following Chrome permissions:</p>
+  <p>KillSwitch requests the following Chrome permissions and uses them as described:</p>
   <ul>
-    <li><strong>storage</strong> – to save your API keys, preferences, and local feedback history.</li>
-    <li><strong>contextMenus</strong> – to add a right-click menu option on freelance platform pages.</li>
-    <li><strong>activeTab</strong> – to read selected text from the current tab when you use the context menu.</li>
-    <li><strong>host permissions for AI API domains</strong> – to make API calls directly from the extension context to your configured AI provider.</li>
+    <li>
+      <strong>contextMenus</strong> — Adds a right-click context menu item on Upwork, Fiverr, and
+      Freelancer pages. When you select text from a job description and right-click, the menu sends
+      that text to the extension popup to pre-fill the job description field.
+    </li>
+    <li>
+      <strong>tabs</strong> — Used solely to open the Settings page in a new tab when you click the
+      settings icon in the popup. No tab content is read or modified.
+    </li>
+    <li>
+      <strong>scripting</strong> — Injects a content script into Upwork, Fiverr, and Freelancer pages
+      so that generated proposals can be auto-filled into the job application textarea, saving you from
+      manually pasting. No other page content is accessed or modified.
+    </li>
+    <li>
+      <strong>storage</strong> — Stores your API keys and preferences (tone, goal, language defaults,
+      custom prompt) in <code>chrome.storage.sync</code>, and your local proposal feedback history in
+      <code>chrome.storage.local</code>. Nothing is sent to any server operated by this extension.
+    </li>
+    <li>
+      <strong>Host permissions</strong> (Upwork, Fiverr, Freelancer, AI provider domains) — Required
+      for two purposes: (1) to inject the content script into freelance platform pages for textarea
+      auto-fill; (2) to make direct API calls from the extension to your configured AI provider
+      (Groq, Google Gemini, or Hugging Face) using your own API key.
+    </li>
   </ul>
+
+  <h2>No remote code execution</h2>
+  <p>
+    This extension does not execute remote code. All JavaScript is bundled at build time and
+    included in the extension package. The extension makes standard <code>fetch()</code> calls to
+    AI provider REST APIs and receives text responses — no code is fetched from or executed from
+    any remote source.
+  </p>
 
   <h2>Third-party AI providers</h2>
   <p>
