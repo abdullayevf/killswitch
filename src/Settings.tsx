@@ -74,6 +74,8 @@ const Settings: React.FC = () => {
     error: null
   })
   const [saved, setSaved] = useState(false)
+  const [likedCount, setLikedCount] = useState(0)
+  const [dislikedCount, setDislikedCount] = useState(0)
 
   const currentProvider = AI_PROVIDERS.find(p => p.id === settings.aiProvider)
   const currentApiKey = settings.apiKeys[settings.aiProvider] || ''
@@ -99,6 +101,11 @@ const Settings: React.FC = () => {
       })
     })
 
+    chrome.storage.local.get(['feedbackHistory'], (result) => {
+      const history: Array<{ rating: string }> = result.feedbackHistory || []
+      setLikedCount(history.filter(e => e.rating === 'like').length)
+      setDislikedCount(history.filter(e => e.rating === 'dislike').length)
+    })
   }, [])
 
   // Reset validation when provider changes
@@ -164,6 +171,13 @@ const Settings: React.FC = () => {
     
     // Reset validation when key changes
     setValidation({ isValidating: false, isValid: false, error: null })
+  }
+
+  const clearLearningHistory = () => {
+    chrome.storage.local.remove(['feedbackHistory'], () => {
+      setLikedCount(0)
+      setDislikedCount(0)
+    })
   }
 
   const handleSave = () => {
@@ -398,6 +412,29 @@ const Settings: React.FC = () => {
         </div>
 
 
+
+        <div className="bg-white rounded-lg shadow-sm border p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Learning History</h2>
+          {likedCount === 0 && dislikedCount === 0 ? (
+            <p className="text-sm text-gray-500">
+              No feedback yet — rate proposals in the popup to personalize your voice.
+            </p>
+          ) : (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-700">
+                👍 <span className="font-medium">{likedCount}</span> proposal{likedCount !== 1 ? 's' : ''} you liked
+                {' · '}
+                👎 <span className="font-medium">{dislikedCount}</span> proposal{dislikedCount !== 1 ? 's' : ''} marked off
+              </p>
+              <button
+                onClick={clearLearningHistory}
+                className="text-sm text-red-600 hover:text-red-800 underline"
+              >
+                Clear Learning History
+              </button>
+            </div>
+          )}
+        </div>
 
         <div className="bg-white rounded-lg shadow-sm border p-6">
           <div className="flex gap-3">

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KillSwitch – Privacy Policy</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 760px;
+      margin: 60px auto;
+      padding: 0 24px;
+      color: #1f2937;
+      line-height: 1.7;
+    }
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 4px; }
+    h2 { font-size: 18px; font-weight: 600; margin-top: 36px; margin-bottom: 8px; color: #111827; }
+    p, li { font-size: 15px; color: #374151; }
+    ul { padding-left: 20px; }
+    .meta { color: #6b7280; font-size: 14px; margin-bottom: 40px; }
+    hr { border: none; border-top: 1px solid #e5e7eb; margin: 40px 0; }
+    a { color: #4f46e5; }
+  </style>
+</head>
+<body>
+  <h1>KillSwitch Privacy Policy</h1>
+  <p class="meta">Effective date: March 2, 2026 · Last updated: March 2, 2026</p>
+
+  <p>
+    KillSwitch is a Chrome Extension that generates tailored freelance proposals for job posts on
+    Upwork, Fiverr, and Freelancer. This policy explains what data the extension handles and how it
+    is stored and used.
+  </p>
+
+  <h2>Data we do NOT collect</h2>
+  <ul>
+    <li>We do not operate servers or backends.</li>
+    <li>We do not collect, transmit, or store any data on our own infrastructure.</li>
+    <li>We do not use analytics, crash reporting, or any third-party tracking SDKs.</li>
+    <li>We do not track usage, clicks, or behavior of any kind.</li>
+  </ul>
+
+  <h2>API keys</h2>
+  <p>
+    Your API keys for Groq, Google Gemini, or Hugging Face are stored exclusively in
+    <code>chrome.storage.sync</code>, which is managed by Chrome and optionally synced across your
+    own signed-in Chrome profile. Keys are never transmitted to KillSwitch servers (which do not
+    exist) and are only sent directly to the AI provider you have configured when you generate a
+    proposal.
+  </p>
+
+  <h2>Job descriptions and proposals</h2>
+  <p>
+    When you click "Generate Proposal," the job description you entered is sent directly from your
+    browser to the AI provider you selected (Groq, Google Gemini, or Hugging Face). This request
+    is made using your own API key and is governed by that provider's privacy policy. KillSwitch
+    does not see, log, or retain the contents of these requests.
+  </p>
+
+  <h2>Feedback and learning history</h2>
+  <p>
+    When you rate a proposal with 👍 or 👎, the proposal text (truncated to 600 characters) and
+    your rating are stored locally in <code>chrome.storage.local</code> on your device only. This
+    data is used solely to personalize future proposals via few-shot prompt injection — it is never
+    transmitted anywhere. You can delete all feedback history at any time from the Settings page.
+  </p>
+
+  <h2>Permissions</h2>
+  <p>KillSwitch requests the following Chrome permissions:</p>
+  <ul>
+    <li><strong>storage</strong> – to save your API keys, preferences, and local feedback history.</li>
+    <li><strong>contextMenus</strong> – to add a right-click menu option on freelance platform pages.</li>
+    <li><strong>activeTab</strong> – to read selected text from the current tab when you use the context menu.</li>
+    <li><strong>host permissions for AI API domains</strong> – to make API calls directly from the extension context to your configured AI provider.</li>
+  </ul>
+
+  <h2>Third-party AI providers</h2>
+  <p>
+    Requests to AI providers are subject to their own privacy policies:
+  </p>
+  <ul>
+    <li><a href="https://groq.com/privacy-policy/" target="_blank" rel="noopener">Groq Privacy Policy</a></li>
+    <li><a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google Privacy Policy</a></li>
+    <li><a href="https://huggingface.co/privacy" target="_blank" rel="noopener">Hugging Face Privacy Policy</a></li>
+  </ul>
+
+  <h2>Clearing your data</h2>
+  <p>
+    You can remove all data stored by KillSwitch at any time:
+  </p>
+  <ul>
+    <li>Open the KillSwitch Settings page and click "Clear Learning History" to delete all feedback.</li>
+    <li>Remove your API key from the Settings page to delete stored credentials.</li>
+    <li>Uninstalling the extension removes all locally stored data from your device.</li>
+  </ul>
+
+  <hr>
+
+  <p>
+    If you have questions about this policy, please open an issue on the
+    <a href="https://github.com/maurilar/killswitch" target="_blank" rel="noopener">KillSwitch GitHub repository</a>.
+  </p>
+</body>
+</html>

@@ -56,8 +56,6 @@ function injectProposal(text: string): void {
     setTimeout(() => {
       targetElement!.style.backgroundColor = ''
     }, 2000)
-  } else {
-    console.error('KillSwitch: Could not find a suitable textarea to inject the proposal')
   }
 }
 
@@ -68,7 +66,7 @@ const observer = new MutationObserver((mutations) => {
         if (node.nodeType === Node.ELEMENT_NODE) {
           const element = node as Element
           if (element.matches('textarea') || element.querySelector('textarea')) {
-            console.log('KillSwitch: New textarea detected')
+            // new textarea detected
           }
         }
       })
@@ -80,5 +78,3 @@ observer.observe(document.body, {
   childList: true,
   subtree: true
 })
-
-console.log('KillSwitch content script loaded')

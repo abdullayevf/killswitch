@@ -11,14 +11,12 @@ interface GeneratedProposal {
   timestamp: number
 }
 
-interface DebugInfo {
-  apiKey: string
-  requestUrl: string
-  requestBody: any
-  responseStatus: number
-  responseHeaders: any
-  responseBody: any
-  errorDetails: string
+interface FeedbackEntry {
+  id: string
+  timestamp: number
+  proposal: string
+  rating: 'like' | 'dislike'
+  settings: { tone: string; goal: string; language: string }
 }
 
 const App: React.FC = () => {
@@ -31,9 +29,9 @@ const App: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedProposal, setGeneratedProposal] = useState<GeneratedProposal | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null)
-  const [showDebug, setShowDebug] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [feedbackRating, setFeedbackRating] = useState<'like' | 'dislike' | null>(null)
+  const [feedbackSaved, setFeedbackSaved] = useState(false)
 
   useEffect(() => {
     chrome.storage.local.get(['selectedText'], (result) => {
@@ -58,156 +56,71 @@ const App: React.FC = () => {
 
     setIsGenerating(true)
     setError(null)
-    setDebugInfo(null)
-    setShowDebug(false)
-
-    const requestUrl = 'https://api.openai.com/v1/chat/completions'
-    let debugData: Partial<DebugInfo> = {
-      requestUrl,
-      apiKey: '',
-      requestBody: null,
-      responseStatus: 0,
-      responseHeaders: {},
-      responseBody: null,
-      errorDetails: ''
-    }
 
     try {
-      console.log('🔄 Starting proposal generation...')
-      
       const aiConfig = await getAIConfig()
-      debugData.apiKey = aiConfig.apiKey ? `${aiConfig.apiKey.substring(0, 10)}...` : 'No key found'
-      console.log('🔑 AI Provider:', aiConfig.provider)
-      console.log('🔑 Model:', aiConfig.model)
-      console.log('🔑 API Key length:', aiConfig.apiKey ? aiConfig.apiKey.length : 'No key found')
-      
+
       if (!aiConfig.apiKey || aiConfig.apiKey.trim() === '') {
-        const error = `${aiConfig.provider} API key not configured. Please go to Settings and add your API key.`
-        debugData.errorDetails = error
-        setDebugInfo(debugData as DebugInfo)
-        throw new Error(error)
+        throw new Error(`${aiConfig.provider} API key not configured. Please go to Settings and add your API key.`)
       }
 
       const prompt = await buildPrompt(jobDescription, settings)
-      console.log('📝 Generated prompt:', prompt)
 
-      let response: Response
       let proposalText: string
 
       if (aiConfig.provider === 'groq') {
-        debugData.requestBody = {
-          model: aiConfig.model,
-          messages: [{ role: 'user', content: prompt }],
-          max_tokens: 500,
-          temperature: 0.7
-        }
-        console.log('📤 Groq API Request:', debugData.requestBody)
-        
-        response = await callGroqAPI(aiConfig.apiKey, aiConfig.model, prompt)
-        
-        debugData.responseStatus = response.status
-        debugData.responseHeaders = Object.fromEntries(response.headers.entries())
-        
+        const response = await callGroqAPI(aiConfig.apiKey, aiConfig.model, prompt)
         const responseText = await response.text()
-        console.log('📥 Raw response text:', responseText)
 
         if (!response.ok) {
-          debugData.responseBody = responseText
-          debugData.errorDetails = `HTTP ${response.status}: ${responseText}`
-          setDebugInfo(debugData as DebugInfo)
           throw new Error(`Groq API error (Status: ${response.status})`)
         }
 
         const data = JSON.parse(responseText)
-        debugData.responseBody = data
         proposalText = data.choices[0].message.content
 
       } else if (aiConfig.provider === 'gemini') {
-        debugData.requestBody = {
-          contents: [{ parts: [{ text: prompt }] }]
-        }
-        console.log('📤 Gemini API Request:', debugData.requestBody)
-        
-        response = await callGeminiAPI(aiConfig.apiKey, aiConfig.model, prompt)
-        
-        debugData.responseStatus = response.status
-        debugData.responseHeaders = Object.fromEntries(response.headers.entries())
-        
+        const response = await callGeminiAPI(aiConfig.apiKey, aiConfig.model, prompt)
         const responseText = await response.text()
-        console.log('📥 Raw response text:', responseText)
 
         if (!response.ok) {
-          debugData.responseBody = responseText
-          debugData.errorDetails = `HTTP ${response.status}: ${responseText}`
-          setDebugInfo(debugData as DebugInfo)
           throw new Error(`Gemini API error (Status: ${response.status})`)
         }
 
         const data = JSON.parse(responseText)
-        debugData.responseBody = data
         proposalText = data.candidates[0].content.parts[0].text
 
       } else if (aiConfig.provider === 'huggingface') {
-        debugData.requestBody = {
-          inputs: prompt,
-          parameters: { max_new_tokens: 500, temperature: 0.7 }
-        }
-        console.log('📤 HuggingFace API Request:', debugData.requestBody)
-        
-        response = await callHuggingFaceAPI(aiConfig.apiKey, aiConfig.model, prompt)
-        
-        debugData.responseStatus = response.status
-        debugData.responseHeaders = Object.fromEntries(response.headers.entries())
-        
+        const response = await callHuggingFaceAPI(aiConfig.apiKey, aiConfig.model, prompt)
         const responseText = await response.text()
-        console.log('📥 Raw response text:', responseText)
 
         if (!response.ok) {
-          debugData.responseBody = responseText
-          debugData.errorDetails = `HTTP ${response.status}: ${responseText}`
-          setDebugInfo(debugData as DebugInfo)
           throw new Error(`HuggingFace API error (Status: ${response.status})`)
         }
 
         const data = JSON.parse(responseText)
-        debugData.responseBody = data
         proposalText = Array.isArray(data) ? data[0].generated_text : data.generated_text
 
       } else {
         throw new Error(`Unsupported AI provider: ${aiConfig.provider}`)
       }
 
-      setDebugInfo(debugData as DebugInfo)
-      console.log('✅ API Success response')
-      console.log('📄 Generated proposal text:', proposalText)
-
       setGeneratedProposal({
         text: proposalText,
         timestamp: Date.now()
       })
-      
-      console.log('🎉 Proposal generation completed successfully!')
     } catch (err) {
-      console.error('💥 Error in handleGenerate:', err)
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred'
-      
-      if (!debugData.errorDetails) {
-        debugData.errorDetails = errorMessage
-      }
-      setDebugInfo(debugData as DebugInfo)
-      
-      console.error('💥 Final error message:', errorMessage)
       setError(errorMessage)
-      setShowDebug(true) // Auto-show debug info on error
     } finally {
       setIsGenerating(false)
-      console.log('🏁 Generation process finished')
+      setFeedbackRating(null)
     }
   }
 
   const handleCopy = async () => {
     if (!generatedProposal) return
-    
+
     try {
       await navigator.clipboard.writeText(generatedProposal.text)
       setCopied(true)
@@ -217,14 +130,21 @@ const App: React.FC = () => {
     }
   }
 
+  const handleFeedback = async (rating: 'like' | 'dislike') => {
+    if (!generatedProposal) return
+    setFeedbackRating(rating)
+    await saveFeedback(rating, generatedProposal.text, settings)
+    setFeedbackSaved(true)
+    setTimeout(() => setFeedbackSaved(false), 2000)
+  }
 
   return (
     <div style={{ width: '400px', backgroundColor: 'white' }}>
       {/* Header */}
-      <div style={{ 
-        background: 'linear-gradient(to right, #4f46e5, #9333ea)', 
-        padding: '20px', 
-        color: 'white' 
+      <div style={{
+        background: 'linear-gradient(to right, #4f46e5, #9333ea)',
+        padding: '20px',
+        color: 'white'
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
@@ -261,12 +181,12 @@ const App: React.FC = () => {
       <div style={{ padding: '20px' }}>
         {/* Job Description */}
         <div style={{ marginBottom: '20px' }}>
-          <label style={{ 
-            display: 'block', 
-            fontSize: '14px', 
-            fontWeight: '500', 
-            color: '#374151', 
-            marginBottom: '8px' 
+          <label style={{
+            display: 'block',
+            fontSize: '14px',
+            fontWeight: '500',
+            color: '#374151',
+            marginBottom: '8px'
           }}>
             Job Description
           </label>
@@ -290,12 +210,12 @@ const App: React.FC = () => {
               onFocus={(e) => e.target.style.borderColor = '#6366f1'}
               onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
             />
-            <div style={{ 
-              position: 'absolute', 
-              bottom: '8px', 
-              right: '8px', 
-              fontSize: '12px', 
-              color: '#9ca3af' 
+            <div style={{
+              position: 'absolute',
+              bottom: '8px',
+              right: '8px',
+              fontSize: '12px',
+              color: '#9ca3af'
             }}>
               {jobDescription.length}/2000
             </div>
@@ -303,19 +223,19 @@ const App: React.FC = () => {
         </div>
 
         {/* Settings */}
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(3, 1fr)', 
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
           gap: '12px',
           marginBottom: '20px'
         }}>
           <div>
-            <label style={{ 
-              display: 'block', 
-              fontSize: '12px', 
-              fontWeight: '500', 
-              color: '#4b5563', 
-              marginBottom: '4px' 
+            <label style={{
+              display: 'block',
+              fontSize: '12px',
+              fontWeight: '500',
+              color: '#4b5563',
+              marginBottom: '4px'
             }}>Tone</label>
             <select
               value={settings.tone}
@@ -339,14 +259,14 @@ const App: React.FC = () => {
               <option value="Confident">Confident</option>
             </select>
           </div>
-          
+
           <div>
-            <label style={{ 
-              display: 'block', 
-              fontSize: '12px', 
-              fontWeight: '500', 
-              color: '#4b5563', 
-              marginBottom: '4px' 
+            <label style={{
+              display: 'block',
+              fontSize: '12px',
+              fontWeight: '500',
+              color: '#4b5563',
+              marginBottom: '4px'
             }}>Goal</label>
             <select
               value={settings.goal}
@@ -370,14 +290,14 @@ const App: React.FC = () => {
               <option value="Competitive Edge">Competitive Edge</option>
             </select>
           </div>
-          
+
           <div>
-            <label style={{ 
-              display: 'block', 
-              fontSize: '12px', 
-              fontWeight: '500', 
-              color: '#4b5563', 
-              marginBottom: '4px' 
+            <label style={{
+              display: 'block',
+              fontSize: '12px',
+              fontWeight: '500',
+              color: '#4b5563',
+              marginBottom: '4px'
             }}>Language</label>
             <select
               value={settings.language}
@@ -410,8 +330,8 @@ const App: React.FC = () => {
           disabled={isGenerating || !jobDescription.trim()}
           style={{
             width: '100%',
-            background: isGenerating || !jobDescription.trim() 
-              ? '#9ca3af' 
+            background: isGenerating || !jobDescription.trim()
+              ? '#9ca3af'
               : 'linear-gradient(to right, #4f46e5, #9333ea)',
             color: 'white',
             padding: '12px 16px',
@@ -447,132 +367,119 @@ const App: React.FC = () => {
               Generating...
             </>
           ) : (
-            <>
-              Generate Proposal
-            </>
+            <>Generate Proposal</>
           )}
         </button>
 
         {/* Error */}
         {error && (
-          <div className="p-4 bg-red-50 border-l-4 border-red-400 rounded-lg">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3 flex-1">
-                <p className="text-sm text-red-700 font-medium">{error}</p>
-                {debugInfo && (
-                  <button
-                    onClick={() => setShowDebug(!showDebug)}
-                    className="mt-2 text-xs text-red-600 hover:text-red-800 underline"
-                  >
-                    {showDebug ? 'Hide' : 'Show'} Debug Info
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Debug Info */}
-        {debugInfo && showDebug && (
-          <div className="p-4 bg-gray-50 border rounded-lg">
-            <h4 className="text-sm font-semibold text-gray-700 mb-3">🔍 Debug Information</h4>
-            <div className="space-y-3 text-xs">
-              <div>
-                <span className="font-medium text-gray-600">API Key:</span> 
-                <span className="ml-2 font-mono text-gray-800">{debugInfo.apiKey}</span>
-              </div>
-              <div>
-                <span className="font-medium text-gray-600">Request URL:</span> 
-                <span className="ml-2 font-mono text-gray-800 break-all">{debugInfo.requestUrl}</span>
-              </div>
-              <div>
-                <span className="font-medium text-gray-600">Response Status:</span> 
-                <span className="ml-2 font-mono text-gray-800">{debugInfo.responseStatus}</span>
-              </div>
-              {debugInfo.requestBody && (
-                <div>
-                  <span className="font-medium text-gray-600">Request Body:</span>
-                  <pre className="mt-1 p-2 bg-white border rounded text-xs overflow-x-auto">
-                    {JSON.stringify(debugInfo.requestBody, null, 2)}
-                  </pre>
-                </div>
-              )}
-              {debugInfo.responseHeaders && Object.keys(debugInfo.responseHeaders).length > 0 && (
-                <div>
-                  <span className="font-medium text-gray-600">Response Headers:</span>
-                  <pre className="mt-1 p-2 bg-white border rounded text-xs overflow-x-auto">
-                    {JSON.stringify(debugInfo.responseHeaders, null, 2)}
-                  </pre>
-                </div>
-              )}
-              {debugInfo.responseBody && (
-                <div>
-                  <span className="font-medium text-gray-600">Response Body:</span>
-                  <pre className="mt-1 p-2 bg-white border rounded text-xs overflow-x-auto max-h-32 overflow-y-auto">
-                    {typeof debugInfo.responseBody === 'string' 
-                      ? debugInfo.responseBody 
-                      : JSON.stringify(debugInfo.responseBody, null, 2)}
-                  </pre>
-                </div>
-              )}
-              {debugInfo.errorDetails && (
-                <div>
-                  <span className="font-medium text-gray-600">Error Details:</span>
-                  <pre className="mt-1 p-2 bg-red-50 border border-red-200 rounded text-xs">
-                    {debugInfo.errorDetails}
-                  </pre>
-                </div>
-              )}
-            </div>
+          <div style={{
+            padding: '16px',
+            backgroundColor: '#fef2f2',
+            borderLeft: '4px solid #f87171',
+            borderRadius: '8px',
+            marginBottom: '16px',
+            display: 'flex',
+            gap: '12px',
+            alignItems: 'flex-start'
+          }}>
+            <svg style={{ width: '20px', height: '20px', color: '#f87171', flexShrink: 0 }} viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
+            <p style={{ fontSize: '14px', color: '#b91c1c', fontWeight: '500', margin: 0 }}>{error}</p>
           </div>
         )}
 
         {/* Generated Proposal */}
         {generatedProposal && (
-          <div style={{ 
-            border: '1px solid #e5e7eb', 
-            borderRadius: '8px', 
-            padding: '16px', 
-            backgroundColor: '#f9fafb' 
+          <div style={{
+            border: '1px solid #e5e7eb',
+            borderRadius: '8px',
+            padding: '16px',
+            backgroundColor: '#f9fafb'
           }}>
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '8px', 
-              marginBottom: '12px' 
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              marginBottom: '12px'
             }}>
-              <div style={{ 
-                width: '8px', 
-                height: '8px', 
-                backgroundColor: '#22c55e', 
-                borderRadius: '50%' 
+              <div style={{
+                width: '8px',
+                height: '8px',
+                backgroundColor: '#22c55e',
+                borderRadius: '50%'
               }}></div>
-              <span style={{ 
-                fontSize: '14px', 
-                fontWeight: '500', 
-                color: '#374151' 
+              <span style={{
+                fontSize: '14px',
+                fontWeight: '500',
+                color: '#374151'
               }}>Generated Proposal</span>
             </div>
-            
-            <div style={{ 
-              fontSize: '14px', 
-              color: '#1f2937', 
-              lineHeight: '1.625', 
-              whiteSpace: 'pre-wrap', 
-              backgroundColor: 'white', 
-              padding: '12px', 
-              borderRadius: '6px', 
-              border: '1px solid #e5e7eb', 
-              marginBottom: '16px' 
+
+            <div style={{
+              fontSize: '14px',
+              color: '#1f2937',
+              lineHeight: '1.625',
+              whiteSpace: 'pre-wrap',
+              backgroundColor: 'white',
+              padding: '12px',
+              borderRadius: '6px',
+              border: '1px solid #e5e7eb',
+              marginBottom: '16px'
             }}>
               {generatedProposal.text}
             </div>
-            
+
+            {/* Feedback Buttons */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+              <button
+                onClick={() => handleFeedback('like')}
+                style={{
+                  flex: 1,
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  border: feedbackRating === 'like' ? '2px solid #22c55e' : '1px solid #d1d5db',
+                  backgroundColor: feedbackRating === 'like' ? '#f0fdf4' : feedbackRating === 'dislike' ? '#f9fafb' : 'white',
+                  color: feedbackRating === 'dislike' ? '#9ca3af' : '#374151',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  transition: 'all 0.2s'
+                }}
+              >
+                👍 Sounds like me
+              </button>
+              <button
+                onClick={() => handleFeedback('dislike')}
+                style={{
+                  flex: 1,
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  border: feedbackRating === 'dislike' ? '2px solid #ef4444' : '1px solid #d1d5db',
+                  backgroundColor: feedbackRating === 'dislike' ? '#fef2f2' : feedbackRating === 'like' ? '#f9fafb' : 'white',
+                  color: feedbackRating === 'like' ? '#9ca3af' : '#374151',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  transition: 'all 0.2s'
+                }}
+              >
+                👎 Off the mark
+              </button>
+            </div>
+
+            {feedbackSaved && (
+              <p style={{
+                fontSize: '12px',
+                color: '#6b7280',
+                textAlign: 'center',
+                margin: '0 0 12px 0'
+              }}>
+                Saved! This will shape future proposals.
+              </p>
+            )}
+
             <button
               onClick={handleCopy}
               style={{
@@ -635,7 +542,7 @@ async function callGroqAPI(apiKey: string, model: string, prompt: string) {
       temperature: 0.7
     })
   })
-  
+
   return response
 }
 
@@ -651,7 +558,7 @@ async function callGeminiAPI(apiKey: string, model: string, prompt: string) {
       }]
     })
   })
-  
+
   return response
 }
 
@@ -670,25 +577,80 @@ async function callHuggingFaceAPI(apiKey: string, model: string, prompt: string)
       }
     })
   })
-  
+
   return response
 }
 
+async function saveFeedback(rating: 'like' | 'dislike', proposalText: string, settings: ProposalSettings): Promise<void> {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['feedbackHistory'], (result) => {
+      const history: FeedbackEntry[] = result.feedbackHistory || []
+
+      const newEntry: FeedbackEntry = {
+        id: Date.now().toString(),
+        timestamp: Date.now(),
+        proposal: proposalText.substring(0, 600),
+        rating,
+        settings: { tone: settings.tone, goal: settings.goal, language: settings.language }
+      }
+
+      const updatedHistory = [newEntry, ...history]
+
+      // Apply capacity rules: keep max 10 liked + 5 disliked, oldest evicted first
+      const liked = updatedHistory.filter(e => e.rating === 'like').slice(0, 10)
+      const disliked = updatedHistory.filter(e => e.rating === 'dislike').slice(0, 5)
+      const finalHistory = [...liked, ...disliked].sort((a, b) => b.timestamp - a.timestamp)
+
+      chrome.storage.local.set({ feedbackHistory: finalHistory }, () => resolve())
+    })
+  })
+}
+
+async function getLikedProposals(): Promise<string[]> {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['feedbackHistory'], (result) => {
+      const history: FeedbackEntry[] = result.feedbackHistory || []
+      const liked = history
+        .filter(e => e.rating === 'like')
+        .slice(0, 3)
+        .map(e => e.proposal)
+      resolve(liked)
+    })
+  })
+}
+
 async function buildPrompt(jobDescription: string, settings: ProposalSettings): Promise<string> {
-  const detectedLanguage = settings.language === 'Auto-detect' 
-    ? detectLanguage(jobDescription) 
+  const detectedLanguage = settings.language === 'Auto-detect'
+    ? detectLanguage(jobDescription)
     : settings.language
+
+  const likedExamples = await getLikedProposals()
+
+  let styleSection = ''
+  if (likedExamples.length > 0) {
+    const examplesText = likedExamples
+      .map((example, i) => `Example ${i + 1}:\n"""\n${example}\n"""`)
+      .join('\n\n')
+
+    styleSection = `\nPERSONAL WRITING STYLE — match this voice exactly:
+The following are real proposals this user has approved. Mirror the tone, directness, and flow:
+
+${examplesText}
+
+Write the new proposal matching this personal voice while adapting to the job below.\n`
+  }
 
   // Check for custom prompt
   const customPrompt = await getCustomPrompt()
-  
+
   if (customPrompt && customPrompt.trim()) {
-    // Replace variables in custom prompt
-    return customPrompt
+    const renderedPrompt = customPrompt
       .replace(/{jobDescription}/g, jobDescription)
       .replace(/{tone}/g, settings.tone)
       .replace(/{goal}/g, settings.goal)
       .replace(/{language}/g, detectedLanguage)
+
+    return styleSection + renderedPrompt
   }
 
   // Default prompt - optimized for effectiveness
@@ -710,7 +672,7 @@ REQUIREMENTS:
 - No generic phrases or filler words
 - Include specific technical skills mentioned in the job
 - Show understanding of their business/industry
-
+${styleSection}
 JOB POST:
 ${jobDescription}
 
@@ -727,19 +689,19 @@ async function getCustomPrompt(): Promise<string> {
 
 function detectLanguage(text: string): string {
   const lowerText = text.toLowerCase()
-  
+
   // Russian detection
   const russianWords = ['и', 'в', 'на', 'с', 'по', 'для', 'от', 'до', 'из', 'о', 'об', 'за', 'при', 'без', 'работа', 'опыт', 'проект']
   const russianCount = russianWords.filter(word => lowerText.includes(word)).length
-  
-  // Spanish detection  
+
+  // Spanish detection
   const spanishWords = ['que', 'para', 'con', 'una', 'por', 'como', 'trabajo', 'de', 'la', 'el', 'en', 'y']
   const spanishCount = spanishWords.filter(word => lowerText.includes(word)).length
-  
+
   // French detection
   const frenchWords = ['que', 'pour', 'avec', 'une', 'par', 'comme', 'travail', 'de', 'la', 'le', 'et', 'dans']
   const frenchCount = frenchWords.filter(word => lowerText.includes(word)).length
-  
+
   if (russianCount > 3) return 'Russian'
   if (spanishCount > 3) return 'Spanish'
   if (frenchCount > 3) return 'French'

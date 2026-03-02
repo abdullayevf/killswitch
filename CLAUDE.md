@@ -4,57 +4,56 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**KillSwitch** is a Chrome extension that auto-generates tailored freelance proposals for job posts on platforms like Upwork, Fiverr, and Freelancer. The extension uses AI to create conversion-optimized proposals directly via context menu with learning capabilities from user feedback.
-
-## Project Status
-
-This is a greenfield project with only the PRD.md specification file currently present. No code has been implemented yet.
-
-## Planned Architecture
-
-Based on the technical specification in PRD.md:
-
-### Frontend Components
-- **Chrome Extension Popup** (React + TypeScript + shadcn/ui + Tailwind)
-  - Context menu integration for job description selection
-  - Proposal generation interface with tone/goal/language settings
-  - Feedback system (✅ "Sounds like me" / ❌ "Off the mark")
-- **Settings Page** (Standalone tab)
-  - Custom prompt overrides
-  - Default preferences configuration
-  - Feedback history management
-
-### Core Systems
-- **Prompt Engine**: Client-side or backend API for structured LLM prompts
-- **Feedback Loop**: Binary feedback system for personalization learning
-- **Content Script**: Proposal injection into job site textareas
-
-### Tech Stack (Planned)
-- React + TypeScript
-- TailwindCSS + shadcn/ui
-- Vite or Next.js for bundling
-- Chrome APIs: contextMenus, storage, tabs, scripting
-- LLM API: OpenAI GPT-4o or Claude v3
-- Optional backend: Node.js + Express with Supabase/PostgreSQL
+**KillSwitch** is a Chrome Extension (Manifest v3) that generates tailored freelance proposals for job posts on Upwork, Fiverr, and Freelancer. It supports multiple AI providers (Groq, Google Gemini, HuggingFace) and injects proposals directly into platform textareas via a content script.
 
 ## Development Commands
 
-No package.json or build scripts exist yet. When implementing, typical Chrome extension development would involve:
-- `npm run dev` - Development with hot-reload
-- `npm run build` - Production bundle for Chrome Web Store
-- `npm run test` - Unit tests (framework TBD)
-- `npm run lint` - Code linting (ESLint + TypeScript)
+```bash
+npm install          # Install dependencies
+npm run build        # Production build → dist/
+npm run watch        # Build with file watching (for iterative development)
+npm run dev          # Vite dev server (limited use for extensions)
+```
 
-## Key Implementation Notes
+To test the extension: open `chrome://extensions/`, enable Developer mode, click "Load unpacked", and select the `dist/` folder. Reload after each build.
 
-1. **Manifest v3 Compliance**: Chrome extension must use latest manifest version
-2. **Content Security Policy**: Handle LLM API calls appropriately for extension context
-3. **Site-Specific Injection**: Content script must handle different freelance platform layouts
-4. **Local vs Cloud Storage**: User preferences and feedback can be stored locally or in cloud
-5. **Language Detection**: Auto-detect job post language when not specified by user
+## Architecture
 
-## Security Considerations
+The build uses **Vite with 4 separate entry points** (`vite.config.ts`), each compiled to a flat JS file in `dist/`:
 
-- API keys for LLM services must be handled securely
-- User data (feedback, preferences) should be stored with appropriate privacy protections
-- Content script injection should be limited to known freelance platforms
+| Entry | Output | Purpose |
+|---|---|---|
+| `popup.html` | `popup.js` | React app mounted in the extension popup |
+| `settings.html` | `settings.js` | React app opened as a new Chrome tab |
+| `src/background.ts` | `background.js` | Service worker: context menu registration and message routing |
+| `src/content.ts` | `content.js` | Injected into freelance platform pages; handles textarea injection |
+
+### Data Flow
+
+1. User selects text on a freelance site → context menu → `background.ts` saves it to `chrome.storage.local` and opens popup
+2. Popup (`App.tsx`) reads saved text, builds prompt, calls selected AI provider API directly from extension context
+3. On copy, user pastes proposal manually OR content script (`content.ts`) handles `injectProposal` message to auto-fill textarea
+
+### Chrome Storage Keys
+
+- `chrome.storage.sync`: `aiProvider`, `apiKeys` (map of provider→key), `selectedModel`, `defaultSettings` `{tone, goal, language}`, `customPrompt`, `autoInject`
+- `chrome.storage.local`: `selectedText` (transient, cleared after popup reads it)
+
+### AI Providers
+
+Supported providers and their integrations are defined as a static `AI_PROVIDERS` array in `src/Settings.tsx`. The actual API calls live in `src/App.tsx` as standalone async functions (`callGroqAPI`, `callGeminiAPI`, `callHuggingFaceAPI`). Default provider is Groq; default model is `llama-3.3-70b-versatile`.
+
+### Prompt System
+
+`buildPrompt()` in `App.tsx` either uses a user-defined custom prompt (read from `chrome.storage.sync`) or falls back to a hardcoded default. Custom prompts support four template variables: `{jobDescription}`, `{tone}`, `{goal}`, `{language}`. Language auto-detection uses keyword frequency matching for Russian, Spanish, and French.
+
+## Styling Convention
+
+`App.tsx` (popup) uses **inline styles** only — Tailwind is NOT available in the popup context due to extension CSP constraints. `Settings.tsx` uses **Tailwind CSS classes** (it renders in a full tab with no such restrictions). Do not mix these conventions.
+
+## Key Constraints
+
+- **No tests** exist in this project — there is no test runner configured.
+- **Manifest v3**: Background runs as a service worker (no persistent state between events). `chrome.action.openPopup()` is used to programmatically open the popup from the service worker.
+- **Host permissions** for AI APIs are declared in `manifest.json` and must be updated there if new providers are added.
+- The `dist/` directory and all image files (`*.png`, `*.jpg`, etc.) are gitignored.
